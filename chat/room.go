@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/gorilla/websocket"
+	"github.com/sky0621/study-goweb2/trace"
 )
 
 type room struct {
@@ -12,6 +13,7 @@ type room struct {
 	join    chan *client     // チャットルームに参加しようとしているクライアントのためのチャネル
 	leave   chan *client     // チャットルームから退室しようとしているクライアントのためのチャネル
 	clients map[*client]bool // 在室中の全てのクライアントを保持
+	tracer  trace.Tracer     // チャットログを受け取るインタフェース「Tracer」
 }
 
 // 構造体「チャットルーム」の初期化用メソッド
@@ -21,6 +23,7 @@ func newRoom() *room {
 		join:    make(chan *client),
 		leave:   make(chan *client),
 		clients: make(map[*client]bool),
+		tracer:  trace.Off(), // デフォルトでは出力なしのトレーサーを設定
 	}
 }
 
@@ -30,16 +33,21 @@ func (r *room) run() {
 		select {
 		case client := <-r.join: // 【入室】
 			r.clients[client] = true
+			r.tracer.Trace("新しいクライアントが参加しました")
 		case client := <-r.leave: // 【退室】
 			delete(r.clients, client) // 在室状態から消す
 			close(client.send)        // 消したクライアントの送信用チャネルを閉じる
+			r.tracer.Trace("クライアントが退室しました")
 		case msg := <-r.forward: // 【全クライアントにメッセージ転送】
+			r.tracer.Trace("メッセージを受信しました： ", string(msg))
 			for client := range r.clients {
 				select {
 				case client.send <- msg: // １人１人のクライアントのチャネルにメッセージを流し込む
+					r.tracer.Trace(" -- クライアントに送信されました")
 				default: // 【転送失敗】
 					delete(r.clients, client) // 在室状態から消す
 					close(client.send)        // 消したクライアントの送信用チャネルを閉じる
+					r.tracer.Trace(" -- 送信に失敗しました。クライアントをクリーンナップします。")
 				}
 			}
 		}
