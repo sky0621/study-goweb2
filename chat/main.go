@@ -32,9 +32,13 @@ func (t *templateHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func main() {
 	var addr = flag.String("addr", ":8080", "アプリケーションのアドレス")
 	flag.Parse() // コマンドラインで指定した -addr=":9999" 文字列から必要な情報を取得して *addr にセット
-	http.Handle("/", &templateHandler{filename: "chat.html"})
+
+	http.Handle("/chat", MustAuth(&templateHandler{filename: "chat.html"}))
+
+	http.Handle("/login", &templateHandler{filename: "login.html"})
+
 	r := newRoom()
-	r.tracer = trace.New(os.Stdout)
+	r.tracer = trace.New(os.Stdout) // コンソール出力
 	http.Handle("/room", r)
 
 	go r.run() // チャットルーム開始 -> 入退室やメッセージを待ち受ける
