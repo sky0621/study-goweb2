@@ -10,6 +10,10 @@ import (
 	"sync"
 
 	"github.com/sky0621/study-goweb2/trace"
+	"github.com/stretchr/gomniauth"
+	"github.com/stretchr/gomniauth/providers/facebook"
+	"github.com/stretchr/gomniauth/providers/github"
+	"github.com/stretchr/gomniauth/providers/google"
 )
 
 // テンプレート管理用の構造体
@@ -29,13 +33,30 @@ func (t *templateHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	t.templ.Execute(w, r) // XXX 本当は戻り値をチェックすべき
 }
 
+const cb = "/auth/callback/"
+
 func main() {
 	var addr = flag.String("addr", ":8080", "アプリケーションのアドレス")
 	flag.Parse() // コマンドラインで指定した -addr=":9999" 文字列から必要な情報を取得して *addr にセット
 
+	var secKey = flag.String("secKey", "dummy", "セキュリティキー")
+	log.Println(*secKey)
+	gomniauth.SetSecurityKey(*secKey)
+
+	var lhost = flag.String("host", "localhost", "ドメイン")
+	baseURL := *lhost + *addr + cb
+	log.Println(baseURL)
+	gomniauth.WithProviders(
+		facebook.New("a", "a", baseURL+"facebook"),
+		github.New("a", "a", baseURL+"github"),
+		google.New("a", "a", baseURL+"google"),
+	)
+
 	http.Handle("/chat", MustAuth(&templateHandler{filename: "chat.html"}))
 
 	http.Handle("/login", &templateHandler{filename: "login.html"})
+
+	http.HandleFunc("/auth/", loginHandler)
 
 	r := newRoom()
 	r.tracer = trace.New(os.Stdout) // コンソール出力
