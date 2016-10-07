@@ -1,7 +1,6 @@
 package main
 
 import (
-	"flag"
 	"html/template"
 	"log"
 	"net/http"
@@ -9,10 +8,9 @@ import (
 	"path/filepath"
 	"sync"
 
+	"github.com/sky0621/study-goweb2/config"
 	"github.com/sky0621/study-goweb2/trace"
 	"github.com/stretchr/gomniauth"
-	"github.com/stretchr/gomniauth/providers/facebook"
-	"github.com/stretchr/gomniauth/providers/github"
 	"github.com/stretchr/gomniauth/providers/google"
 )
 
@@ -36,20 +34,14 @@ func (t *templateHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 const cb = "/auth/callback/"
 
 func main() {
-	var addr = flag.String("addr", ":8080", "アプリケーションのアドレス")
-	flag.Parse() // コマンドラインで指定した -addr=":9999" 文字列から必要な情報を取得して *addr にセット
+	cfg := config.ParseFlag()
 
-	var secKey = flag.String("secKey", "dummy", "セキュリティキー")
-	log.Println(*secKey)
-	gomniauth.SetSecurityKey(*secKey)
+	gomniauth.SetSecurityKey(cfg.SecKey)
 
-	var lhost = flag.String("host", "localhost", "ドメイン")
-	baseURL := *lhost + *addr + cb
+	baseURL := cfg.Domain + cfg.Port + cb
 	log.Println(baseURL)
 	gomniauth.WithProviders(
-		facebook.New("a", "a", baseURL+"facebook"),
-		github.New("a", "a", baseURL+"github"),
-		google.New("a", "a", baseURL+"google"),
+		google.New(cfg.GoogleClientID, cfg.GoogleClientSecret, baseURL+"google"),
 	)
 
 	http.Handle("/chat", MustAuth(&templateHandler{filename: "chat.html"}))
@@ -64,8 +56,8 @@ func main() {
 
 	go r.run() // チャットルーム開始 -> 入退室やメッセージを待ち受ける
 
-	log.Println("Webサーバーを開始します。ポート：", *addr)
-	if err := http.ListenAndServe(*addr, nil); err != nil {
+	log.Println("Webサーバーを開始します。ポート：", cfg.Port)
+	if err := http.ListenAndServe(cfg.Port, nil); err != nil {
 		log.Fatal("ListenAndServe:", err)
 	}
 }
