@@ -69,6 +69,7 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 		authCookieValue := objx.New(map[string]interface{}{
 			"name": user.Name(),
 		}).MustBase64()
+		log.Println("[authCookieValue] " + authCookieValue)
 		http.SetCookie(w, &http.Cookie{
 			Name:  "auth",
 			Value: authCookieValue,
