@@ -6,10 +6,11 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/sky0621/study-goweb2/trace"
+	"github.com/stretchr/objx"
 )
 
 type room struct {
-	forward chan []byte      // 他の全てのクライアントに転送するためのメッセージを保持するチャネル
+	forward chan *message    // 他の全てのクライアントに転送するためのメッセージを保持するチャネル
 	join    chan *client     // チャットルームに参加しようとしているクライアントのためのチャネル
 	leave   chan *client     // チャットルームから退室しようとしているクライアントのためのチャネル
 	clients map[*client]bool // 在室中の全てのクライアントを保持
@@ -19,7 +20,7 @@ type room struct {
 // 構造体「チャットルーム」の初期化用メソッド
 func newRoom() *room {
 	return &room{
-		forward: make(chan []byte),
+		forward: make(chan *message),
 		join:    make(chan *client),
 		leave:   make(chan *client),
 		clients: make(map[*client]bool),
@@ -39,7 +40,7 @@ func (r *room) run() {
 			close(client.send)        // 消したクライアントの送信用チャネルを閉じる
 			r.tracer.Trace("クライアントが退室しました")
 		case msg := <-r.forward: // 【全クライアントにメッセージ転送】
-			r.tracer.Trace("メッセージを受信しました： ", string(msg))
+			r.tracer.Trace("メッセージを受信しました： ", msg.Message)
 			for client := range r.clients {
 				select {
 				case client.send <- msg: // １人１人のクライアントのチャネルにメッセージを流し込む
@@ -72,11 +73,19 @@ func (r *room) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	// Cookieに保存されたOAuth2由来のユーザ情報を取得
+	authCookie, err := req.Cookie("auth")
+	if err != nil {
+		log.Fatal("クッキーの取得に失敗しました：", err)
+		return
+	}
+
 	// 構造体「クライアント」を初期化
 	client := &client{
-		socket: socket,
-		send:   make(chan []byte, messageBufferSize), // 指定の型のチャネルを指定バッファサイズで生成
-		room:   r,
+		socket:   socket,
+		send:     make(chan *message, messageBufferSize),
+		room:     r,
+		userData: objx.MustFromBase64(authCookie.Value),
 	}
 
 	r.join <- client // 生成したクライアントをチャットルームの入室用チャネル（join）に投入！
