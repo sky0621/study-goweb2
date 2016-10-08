@@ -44,20 +44,19 @@ func (t *templateHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 const cb = "/auth/callback/"
 
 func main() {
-	cfg := config.ParseFlag()
+	cfg := config.ParseFlag() // アプリ引数の読み込み
 
-	gomniauth.SetSecurityKey(cfg.SecKey)
-
-	baseURL := cfg.Domain + cfg.Port + cb
-	log.Println(baseURL)
+	// サードパーティー認証用の設定（アプリキー（任意）と、とりあえずGoogleDeveloperConsole用）
+	gomniauth.SetSecurityKey(cfg.SecKey) // 認証用にアプリのキー（任意）をセット
 	gomniauth.WithProviders(
-		google.New(cfg.GoogleClientID, cfg.GoogleClientSecret, baseURL+"google"),
+		google.New(cfg.GoogleClientID, cfg.GoogleClientSecret, cfg.Domain+cfg.Port+cb+"google"),
 	)
 
-	http.Handle("/chat", MustAuth(&templateHandler{filename: "chat.html"}))
-
+	/*
+	 * ルーティング
+	 */
+	http.Handle("/chat", MustAuth(&templateHandler{filename: "chat.html"})) // 要認証
 	http.Handle("/login", &templateHandler{filename: "login.html"})
-
 	http.HandleFunc("/auth/", loginHandler)
 
 	r := newRoom()

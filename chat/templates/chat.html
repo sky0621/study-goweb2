@@ -43,7 +43,7 @@
             var msg = JSON.parse(e.data);
             messages.append(
               $("<li>").append(
-                $("<strong>").text(msg.Name + ": "),
+                $("<strong>").text("[" + msg.When + "] " + msg.Name + ": "),
                 $("<span>").text(msg.Message)
               )
             );

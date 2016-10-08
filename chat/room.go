@@ -40,7 +40,7 @@ func (r *room) run() {
 			close(client.send)        // 消したクライアントの送信用チャネルを閉じる
 			r.tracer.Trace("クライアントが退室しました")
 		case msg := <-r.forward: // 【全クライアントにメッセージ転送】
-			r.tracer.Trace("メッセージを受信しました： ", msg.Message)
+			r.tracer.Trace("メッセージを受信しました： ", msg.When, msg.Message)
 			for client := range r.clients {
 				select {
 				case client.send <- msg: // １人１人のクライアントのチャネルにメッセージを流し込む
@@ -55,8 +55,6 @@ func (r *room) run() {
 	}
 }
 
-// room の参照(*room)を http.Handler 型に適合させる。（※同じシグネチャを持つ ServeHTTP メソッドを追加するだけ）
-
 const (
 	socketBufferSize  = 1024
 	messageBufferSize = 256
@@ -65,7 +63,8 @@ const (
 // WebSocketを使うには、HTTP接続をアップグレードする必要がある
 var upgrader = &websocket.Upgrader{ReadBufferSize: socketBufferSize, WriteBufferSize: socketBufferSize}
 
-// HTTPリクエストが来るたびに呼ばれるメソッド
+// chat.html内のJSコードによる「/room」へのHTTPリクエストが来る（新しいクライアントが訪れる）たびに呼ばれるメソッド
+// room の参照(*room)を http.Handler 型に適合させる。（※同じシグネチャを持つ ServeHTTP メソッドを追加するだけ）
 func (r *room) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	socket, err := upgrader.Upgrade(w, req, nil) // HTTP接続をアップグレードしてソケット生成
 	if err != nil {
