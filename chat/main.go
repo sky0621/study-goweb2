@@ -58,6 +58,7 @@ func main() {
 	http.HandleFunc("/auth/", loginHandler)
 	http.HandleFunc("/logout/", logoutHandler)
 	http.Handle("/upload", &templateHandler{filename: "upload.html"})
+	http.HandleFunc("/uploader", uploadHandler)
 
 	// r := newRoom(UseAuthAvatar)
 	r := newRoom(UseGravatar)
