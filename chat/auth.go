@@ -44,30 +44,37 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 	case "login":
 		provider, err := gomniauth.Provider(provider)
 		if err != nil {
-			log.Fatalln("認証プロバイダの取得に失敗しました：", provider, "-", err)
+			http.Error(w, fmt.Sprintf("認証プロバイダ(%s)の取得に失敗しました： %s", provider, err), http.StatusBadRequest)
+			return
 		}
 		loginURL, err := provider.GetBeginAuthURL(nil, nil)
 		if err != nil {
-			log.Fatalln("GetBeginAuthURLの呼び出し中にエラーが発生しました：", provider, "-", err)
+			http.Error(w, fmt.Sprintf("認証プロバイダ(%s)におけるGetBeginAuthURLの呼び出し中にエラーが発生しました： %s", provider, err), http.StatusBadRequest)
+			return
 		}
 		w.Header().Set("Location", loginURL)
 		w.WriteHeader(http.StatusTemporaryRedirect)
 
 	case "callback":
+		// サードパーティプロバイダに応じた認証プロバイダを取得し、認証の完了からユーザ情報取得まで行う
 		provider, err := gomniauth.Provider(provider)
 		if err != nil {
-			log.Fatalln("認証プロバイダの取得に失敗しました：", provider, "-", err)
+			http.Error(w, fmt.Sprintf("認証プロバイダ(%s)の取得に失敗しました： %s", provider, err), http.StatusBadRequest)
+			return
 		}
 		creds, err := provider.CompleteAuth(objx.MustFromURLQuery(r.URL.RawQuery))
 		if err != nil {
-			log.Fatalln("認証を完了できませんでした：", provider, "-", err)
+			http.Error(w, fmt.Sprintf("認証プロバイダ(%s)における認証を完了できませんでした： %s", provider, err), http.StatusBadRequest)
+			return
 		}
 		user, err := provider.GetUser(creds)
 		if err != nil {
-			log.Fatalln("ユーザの取得に失敗しました：", provider, "-", err)
+			http.Error(w, fmt.Sprintf("認証プロバイダ(%s)におけるユーザの取得に失敗しました： %s", provider, err), http.StatusBadRequest)
+			return
 		}
 		authCookieValue := objx.New(map[string]interface{}{
-			"name": user.Name(),
+			"name":       user.Name(),
+			"avatar_url": user.AvatarURL(),
 		}).MustBase64()
 		log.Println("[authCookieValue] " + authCookieValue)
 		http.SetCookie(w, &http.Cookie{
