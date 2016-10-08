@@ -62,7 +62,8 @@ func main() {
 	http.Handle("/avatars/", http.StripPrefix("/avatars/", http.FileServer(http.Dir("./avatars"))))
 
 	// r := newRoom(UseAuthAvatar)
-	r := newRoom(UseGravatar)
+	// r := newRoom(UseGravatar)
+	r := newRoom(UseFileSystemAvatar)
 	r.tracer = trace.New(os.Stdout) // コンソール出力
 	http.Handle("/room", r)
 
