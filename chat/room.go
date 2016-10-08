@@ -15,16 +15,18 @@ type room struct {
 	leave   chan *client     // チャットルームから退室しようとしているクライアントのためのチャネル
 	clients map[*client]bool // 在室中の全てのクライアントを保持
 	tracer  trace.Tracer     // チャットログを受け取るインタフェース「Tracer」
+	avatar  Avatar
 }
 
 // 構造体「チャットルーム」の初期化用メソッド
-func newRoom() *room {
+func newRoom(avatar Avatar) *room {
 	return &room{
 		forward: make(chan *message),
 		join:    make(chan *client),
 		leave:   make(chan *client),
 		clients: make(map[*client]bool),
 		tracer:  trace.Off(), // デフォルトでは出力なしのトレーサーを設定
+		avatar:  avatar,
 	}
 }
 

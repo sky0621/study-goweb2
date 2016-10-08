@@ -58,7 +58,7 @@ func main() {
 	http.HandleFunc("/auth/", loginHandler)
 	http.HandleFunc("/logout/", logoutHandler)
 
-	r := newRoom()
+	r := newRoom(UseAuthAvatar)
 	r.tracer = trace.New(os.Stdout) // コンソール出力
 	http.Handle("/room", r)
 
