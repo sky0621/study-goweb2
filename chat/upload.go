@@ -25,8 +25,9 @@ func uploadHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Println("filepath.Join(avatarts, userID+filepath.Ext(header.Filename))")
-	filename := filepath.Join("avatarts", userID+filepath.Ext(header.Filename))
+	log.Println("filepath.Join(avatars, userID+filepath.Ext(header.Filename))")
+	filename := filepath.Join("avatars", userID+filepath.Ext(header.Filename))
+	log.Println(filename)
 	err = ioutil.WriteFile(filename, data, 0777)
 	if err != nil {
 		io.WriteString(w, err.Error())
