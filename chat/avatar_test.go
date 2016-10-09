@@ -4,19 +4,33 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+
+	gomniauthtest "github.com/stretchr/gomniauth/test"
+
 	"testing"
 )
 
-func TestAvatar(t *testing.T) {
+func TestAuthAvatar(t *testing.T) {
 	var authAvatar AuthAvatar
-	client := new(client)
-	url, err := authAvatar.AvatarURL(client)
+
+	// gomniauthcommon.Userのモックを生成して、chatUser構造体に渡す
+	testUser := &gomniauthtest.TestUser{}
+	testUser.On("AvatarURL").Return("", ErrNoAvatarURL) // エラーを返すモック
+	testChatUser := &chatUser{User: testUser}
+	url, err := authAvatar.AvatarURL(testChatUser)
+
 	if err != ErrNoAvatarURL {
 		t.Error("値が存在しない場合、AuthAvatar.AvatarURLはErrNoAvatarURLを返すべきです")
 	}
+
 	testURL := "http://url-to-avatar/"
-	client.userData = map[string]interface{}{"avatar_url": testURL}
-	url, err = authAvatar.AvatarURL(client)
+
+	// gomniauthcommon.Userのモックを再生成して、chatUser構造体に渡す
+	testUser = &gomniauthtest.TestUser{}
+	testChatUser.User = testUser
+	testUser.On("AvatarURL").Return(testURL, nil) // テスト用のURLを返すモック
+	url, err = authAvatar.AvatarURL(testChatUser)
+
 	if err != nil {
 		t.Error("値が存在する場合、AuthAvatar.AvatarURLはエラーを返すべきではありません")
 	} else {
@@ -28,13 +42,13 @@ func TestAvatar(t *testing.T) {
 
 func TestGravatarAvatar(t *testing.T) {
 	var gravatarAvatar GravatarAvatar
-	client := new(client)
-	client.userData = map[string]interface{}{"userid": "0bc83cb571cd1c50ba6f3e8a78ef1346"}
-	url, err := gravatarAvatar.AvatarURL(client)
+
+	user := &chatUser{uniqueID: "abc"}
+	url, err := gravatarAvatar.AvatarURL(user)
 	if err != nil {
 		t.Error("GravatarAvatar.AvatarURLはエラーを返すべきではありません")
 	}
-	if url != "//www.gravatar.com/avatar/0bc83cb571cd1c50ba6f3e8a78ef1346" {
+	if url != "//www.gravatar.com/avatar/abc" {
 		t.Errorf("GravatarAvatar.AvatarURLが%sという誤った値を返しました", url)
 	}
 }
@@ -46,9 +60,8 @@ func TestFileSystemAvatar(t *testing.T) {
 	defer func() { os.Remove(filename) }()
 
 	var fileSystemAvatar FileSystemAvatar
-	client := new(client)
-	client.userData = map[string]interface{}{"userid": "abc"}
-	url, err := fileSystemAvatar.AvatarURL(client)
+	user := &chatUser{uniqueID: "abc"}
+	url, err := fileSystemAvatar.AvatarURL(user)
 	if err != nil {
 		t.Error("FileSystemAvatar.AvatarURLはエラーを返すべきではありません")
 	}

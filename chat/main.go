@@ -15,6 +15,12 @@ import (
 	"github.com/stretchr/objx"
 )
 
+var avatars Avatar = TryAvatars{
+	UseFileSystemAvatar,
+	UseAuthAvatar,
+	UseGravatar,
+}
+
 // テンプレート管理用の構造体
 type templateHandler struct {
 	once     sync.Once
@@ -61,9 +67,7 @@ func main() {
 	http.HandleFunc("/uploader", uploadHandler)
 	http.Handle("/avatars/", http.StripPrefix("/avatars/", http.FileServer(http.Dir("./avatars"))))
 
-	// r := newRoom(UseAuthAvatar)
-	// r := newRoom(UseGravatar)
-	r := newRoom(UseFileSystemAvatar)
+	r := newRoom()
 	r.tracer = trace.New(os.Stdout) // コンソール出力
 	http.Handle("/room", r)
 

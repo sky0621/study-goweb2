@@ -6,56 +6,67 @@ import (
 	"path/filepath"
 )
 
+// ErrNoAvatarURL ...
 var ErrNoAvatarURL = errors.New("chat: アバターのURLを取得できません。")
 
-// ユーザのプロフィール画像を表すインタフェース
+// Avatar ユーザのプロフィール画像を表すインタフェース
 type Avatar interface {
-	// 渡されたクライアントのアバターURLを取得（※取得できなかったらErrNoAvatarURLを返す）
-	AvatarURL(c *client) (string, error)
+	AvatarURL(u *chatUser) (string, error)
 }
 
+// TryAvatars ...
+type TryAvatars []Avatar
+
+func (a TryAvatars) AvatarURL(u *chatUser) (string, error) {
+	for _, avatar := range a {
+		if url, err := avatar.AvatarURL(u); err == nil {
+			return url, nil
+		}
+	}
+	return "", ErrNoAvatarURL
+}
+
+// AuthAvatar ...
 type AuthAvatar struct{}
 
+// UseAuthAvatar ...
 var UseAuthAvatar AuthAvatar
 
-func (_ AuthAvatar) AvatarURL(c *client) (string, error) {
-	if url, ok := c.userData["avatar_url"]; ok {
-		if urlStr, ok := url.(string); ok {
-			return urlStr, nil
-		}
+// AvatarURL ...
+func (_ AuthAvatar) AvatarURL(u *chatUser) (string, error) {
+	url := u.AvatarURL()
+	if url != "" {
+		return url, nil
 	}
 	return "", ErrNoAvatarURL
 }
 
+// GravatarAvatar ...
 type GravatarAvatar struct{}
 
+// UseGravatar ...
 var UseGravatar GravatarAvatar
 
-func (_ GravatarAvatar) AvatarURL(c *client) (string, error) {
-	if userid, ok := c.userData["userid"]; ok {
-		if useridStr, ok := userid.(string); ok {
-			return "//www.gravatar.com/avatar/" + useridStr, nil
-		}
-	}
-	return "", ErrNoAvatarURL
+// AvatarURL ...
+func (_ GravatarAvatar) AvatarURL(u *chatUser) (string, error) {
+	return "//www.gravatar.com/avatar/" + u.UniqueID(), nil
 }
 
+// FileSystemAvatar ...
 type FileSystemAvatar struct{}
 
+// UseFileSystemAvatar ...
 var UseFileSystemAvatar FileSystemAvatar
 
-func (_ FileSystemAvatar) AvatarURL(c *client) (string, error) {
-	if userid, ok := c.userData["userid"]; ok {
-		if useridStr, ok := userid.(string); ok {
-			if files, err := ioutil.ReadDir("avatars"); err == nil {
-				for _, file := range files {
-					if file.IsDir() {
-						continue
-					}
-					if match, _ := filepath.Match(useridStr+"*", file.Name()); match {
-						return "/avatars/" + file.Name(), nil
-					}
-				}
+// AvatarURL ...
+func (_ FileSystemAvatar) AvatarURL(u *chatUser) (string, error) {
+	if files, err := ioutil.ReadDir("avatars"); err == nil {
+		for _, file := range files {
+			if file.IsDir() {
+				continue
+			}
+			if match, _ := filepath.Match(u.UniqueID()+"*", file.Name()); match {
+				return "/avatars/" + file.Name(), nil
 			}
 		}
 	}

@@ -9,8 +9,26 @@ import (
 	"strings"
 
 	"github.com/stretchr/gomniauth"
+	gomniauthcommon "github.com/stretchr/gomniauth/common"
+
 	"github.com/stretchr/objx"
 )
+
+// ChatUser ...
+type ChatUser interface {
+	UniqueID() string
+	AvatarURL() string // gomniauth/common.Userインタフェースでも定義されているため、chatUser構造体のUserフィールドに適切な値がセットされていれば実装したことになる
+}
+
+type chatUser struct {
+	gomniauthcommon.User // 型の埋め込み（gomniauth/common.Userインタフェースを実装したことになる）
+	uniqueID             string
+}
+
+// ChatUserインタフェースの１メソッドを実装
+func (u *chatUser) UniqueID() string {
+	return u.uniqueID
+}
 
 // 次のハンドラーを要素として持つ
 type authHandler struct {
@@ -30,7 +48,7 @@ func (h *authHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// ヘルパー関数（次に実行したいハンドラーを渡すと、認証ハンドルした後で、渡したハンドラーを呼ぶ、デコレータ―パターン）
+// MustAuth ヘルパー関数（次に実行したいハンドラーを渡すと、認証ハンドルした後で、渡したハンドラーを呼ぶ、デコレータ―パターン）
 func MustAuth(handler http.Handler) http.Handler {
 	return &authHandler{next: handler}
 }
@@ -49,6 +67,7 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, fmt.Sprintf("認証プロバイダ(%s)の取得に失敗しました： %s", provider, err), http.StatusBadRequest)
 			return
 		}
+
 		loginURL, err := provider.GetBeginAuthURL(nil, nil)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("認証プロバイダ(%s)におけるGetBeginAuthURLの呼び出し中にエラーが発生しました： %s", provider, err), http.StatusBadRequest)
@@ -64,24 +83,33 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, fmt.Sprintf("認証プロバイダ(%s)の取得に失敗しました： %s", provider, err), http.StatusBadRequest)
 			return
 		}
+
 		creds, err := provider.CompleteAuth(objx.MustFromURLQuery(r.URL.RawQuery))
 		if err != nil {
 			http.Error(w, fmt.Sprintf("認証プロバイダ(%s)における認証を完了できませんでした： %s", provider, err), http.StatusBadRequest)
 			return
 		}
+
 		user, err := provider.GetUser(creds)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("認証プロバイダ(%s)におけるユーザの取得に失敗しました： %s", provider, err), http.StatusBadRequest)
 			return
 		}
+
+		chatUser := &chatUser{User: user}
 		m := md5.New()
 		io.WriteString(m, strings.ToLower(user.Name()))
-		userID := fmt.Sprintf("%x", m.Sum(nil))
+		chatUser.uniqueID = fmt.Sprintf("%x", m.Sum(nil))
+		avatarURL, err := avatars.AvatarURL(chatUser)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("認証プロバイダ(%s)におけるAvatarURL取得に失敗しました： %s", provider, err), http.StatusBadRequest)
+			return
+		}
+
 		authCookieValue := objx.New(map[string]interface{}{
-			"userid":     userID,
+			"userid":     chatUser.uniqueID,
 			"name":       user.Name(),
-			"avatar_url": user.AvatarURL(),
-			"email":      user.Email(),
+			"avatar_url": avatarURL,
 		}).MustBase64()
 		log.Println("[authCookieValue] " + authCookieValue)
 		http.SetCookie(w, &http.Cookie{
